@@ -106,9 +106,6 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [
-    BASE_DIR / "staticfiles",
-]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Media files (uploads)
@@ -117,7 +114,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Silence JSONField checks on SQLite for local development where we
 # provide lightweight JSON helpers.
-SILENCED_SYSTEM_CHECKS = ["fields.E180"]
+SILENCED_SYSTEM_CHECKS = [
+    "fields.E180",  # SQLite JSON field warning
+    "auth.W005",    # allauth deprecation warning
+]
 
 # DRF Settings
 REST_FRAMEWORK = {
