@@ -4,38 +4,43 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  define: {
-    __API_URL__: JSON.stringify(process.env.VITE_API_URL || 'http://localhost:8000/api'),
-  },
-  server: {
-    host: "::",
-    port: 8080,
-    proxy: {
-      // Proxy API requests to Django backend during development
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '/api'),
+export default defineConfig(({ mode }) => {
+  const root = __dirname;
+  
+  return {
+    root: root,
+    define: {
+      __API_URL__: JSON.stringify(process.env.VITE_API_URL || 'http://localhost:8000/api'),
+    },
+    server: {
+      host: "::",
+      port: 8080,
+      proxy: {
+        // Proxy API requests to Django backend during development
+        '/api': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api/, '/api'),
+        },
       },
     },
-  },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+    plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(root, "./src"),
+      },
+      extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
     },
-    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: false,
-    minify: 'terser',
-    rollupOptions: {
-      output: {
-        manualChunks: undefined,
+    build: {
+      outDir: 'dist',
+      sourcemap: false,
+      minify: 'esbuild',
+      rollupOptions: {
+        output: {
+          manualChunks: undefined,
+        }
       }
-    }
-  },
-}));
+    },
+  };
+});
