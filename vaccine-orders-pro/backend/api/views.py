@@ -8,12 +8,15 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from decimal import Decimal
 import uuid
+from pathlib import Path
 
 from .models import Product, Order, OrderItem, DosePack, UserProfile, Batch, InventoryLog, OrderStatusHistory
 from .serializers import ProductSerializer, OrderSerializer, UserSerializer, BatchSerializer, DosePackSerializer, InventoryLogSerializer
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.middleware.csrf import get_token
 from django.http import JsonResponse
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 @api_view(["GET"])
@@ -324,3 +327,26 @@ class InventoryLogViewSet(viewsets.ReadOnlyModelViewSet):
         if product_id:
             queryset = queryset.filter(product_id=product_id)
         return queryset
+
+
+# Frontend catchall view
+from django.views.generic import View
+from django.http import FileResponse
+import os
+
+class FrontendCatchallView(View):
+    """Serve the React frontend's index.html for all non-API routes."""
+    
+    def get(self, request):
+        # Path to the built frontend
+        index_path = os.path.join(BASE_DIR, 'staticfiles/index.html')
+        
+        # Fallback to dist folder during development
+        if not os.path.exists(index_path):
+            index_path = os.path.join(BASE_DIR.parent, 'dist/index.html')
+        
+        if os.path.exists(index_path):
+            return FileResponse(open(index_path, 'rb'), content_type='text/html')
+        
+        # If no index.html found, return a 404
+        return JsonResponse({'error': 'Frontend not found'}, status=404)
