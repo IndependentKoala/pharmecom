@@ -337,11 +337,11 @@ import os
 class FrontendCatchallView(View):
     """Serve the React frontend's index.html for SPA routing."""
     
-    def get(self, request):
-        path = request.path
+    def get(self, request, path=''):
+        """Handle GET requests. The 'path' parameter is captured from the URL pattern."""
         
         # Don't serve frontend for API or admin routes
-        if path.startswith('/api/') or path.startswith('/admin/') or path.startswith('/assets/'):
+        if request.path.startswith('/api/') or request.path.startswith('/admin/'):
             raise Http404()
         
         # For all other routes, serve index.html for React routing
