@@ -335,9 +335,14 @@ from django.http import FileResponse
 import os
 
 class FrontendCatchallView(View):
-    """Serve the React frontend's index.html for all non-API routes."""
+    """Serve the React frontend's index.html for all non-API/static routes."""
     
     def get(self, request):
+        # Don't serve frontend for API or static routes
+        if request.path.startswith('/api/') or request.path.startswith('/static/'):
+            from django.http import Http404
+            raise Http404()
+        
         # Path to the built frontend
         index_path = os.path.join(BASE_DIR, 'staticfiles/index.html')
         
