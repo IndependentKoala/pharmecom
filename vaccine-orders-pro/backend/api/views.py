@@ -331,19 +331,42 @@ class InventoryLogViewSet(viewsets.ReadOnlyModelViewSet):
 
 # Frontend catchall view
 from django.views.generic import View
-from django.http import FileResponse
+from django.http import FileResponse, Http404, HttpResponse
 import os
+import mimetypes
 
 class FrontendCatchallView(View):
-    """Serve the React frontend's index.html for all non-API/static routes."""
+    """Serve the React frontend's index.html for SPA routing, and static files."""
     
     def get(self, request):
-        # Don't serve frontend for API or static routes
-        if request.path.startswith('/api/') or request.path.startswith('/static/'):
-            from django.http import Http404
+        path = request.path
+        
+        # Don't serve frontend for API or admin routes
+        if path.startswith('/api/') or path.startswith('/admin/'):
             raise Http404()
         
-        # Path to the built frontend
+        # Try to serve static files first
+        # Remove leading slash for file lookup
+        file_path = path.lstrip('/')
+        
+        # Check in staticfiles directory
+        full_path = os.path.join(BASE_DIR, 'staticfiles', file_path)
+        
+        # Fallback to dist during development
+        if not os.path.exists(full_path):
+            full_path = os.path.join(BASE_DIR.parent, 'dist', file_path)
+        
+        # If file exists, serve it with correct MIME type
+        if os.path.exists(full_path) and os.path.isfile(full_path):
+            mime_type, _ = mimetypes.guess_type(full_path)
+            if mime_type is None:
+                mime_type = 'application/octet-stream'
+            
+            with open(full_path, 'rb') as f:
+                response = HttpResponse(f.read(), content_type=mime_type)
+            return response
+        
+        # Otherwise, serve index.html for React routing
         index_path = os.path.join(BASE_DIR, 'staticfiles/index.html')
         
         # Fallback to dist folder during development
@@ -351,7 +374,8 @@ class FrontendCatchallView(View):
             index_path = os.path.join(BASE_DIR.parent, 'dist/index.html')
         
         if os.path.exists(index_path):
-            return FileResponse(open(index_path, 'rb'), content_type='text/html')
+            with open(index_path, 'rb') as f:
+                return HttpResponse(f.read(), content_type='text/html')
         
         # If no index.html found, return a 404
         return JsonResponse({'error': 'Frontend not found'}, status=404)
