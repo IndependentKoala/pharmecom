@@ -69,7 +69,14 @@ class ProductSerializer(serializers.ModelSerializer):
     
     def get_image_url(self, obj):
         """Return the appropriate image URL"""
-        return obj.get_image_url()
+        url = obj.get_image_url()
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        try:
+            if request and url:
+                return request.build_absolute_uri(url)
+        except Exception:
+            pass
+        return url
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
