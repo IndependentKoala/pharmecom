@@ -7,18 +7,17 @@ from api.views import FrontendCatchallView
 
 schema_view = get_schema_view(title="Vaccine Orders API")
 
+schema_view = get_schema_view(title="Vaccine Orders API")
+
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include('api.urls')),
-    path('api/schema/', schema_view, name='api-schema'),
-    # Catchall route - must be last to serve React frontend
-    # WhiteNoise middleware will serve static files (/static/assets/..., /static/*)
-    #path('', FrontendCatchallView.as_view()),
-    #path('<path:path>', FrontendCatchallView.as_view()),
+    path("admin/", admin.site.urls),
+    path("api/", include("api.urls")),
+    path("api/schema/", schema_view, name="api-schema"),
 ]
 
+# React catch-all — exclude admin + api WITH or WITHOUT slash
 urlpatterns += [
-    re_path(r'^(?!admin/|api/).*$', FrontendCatchallView.as_view()),
+    re_path(r"^(?!admin$|admin/|api$|api/).*", FrontendCatchallView.as_view()),
 ]
 
 if settings.DEBUG:
