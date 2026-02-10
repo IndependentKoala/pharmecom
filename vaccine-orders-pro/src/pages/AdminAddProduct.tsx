@@ -368,7 +368,7 @@ export default function AdminAddProduct() {
                         id="imageAlt"
                         value={form.image_alt}
                         onChange={(e) => handleInputChange('image_alt', e.target.value)}
-                        placeholder="Describe the image for accessibility"
+                        placeholder="Describe the image for accessibility (optional)"
                       />
                     </div>
                   </div>
@@ -431,21 +431,19 @@ export default function AdminAddProduct() {
                               type="number"
                               value={batch.doses}
                               onChange={(e) => updateBatch(index, 'doses', parseInt(e.target.value) || 0)}
-                              placeholder="e.g., 1000"
                               min="1"
                               required
                             />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor={`units_per_pack_${index}`} className="text-sm">
-                              Units Per Pack *
+                              Stock *
                             </Label>
                             <Input
                               id={`units_per_pack_${index}`}
                               type="number"
                               value={batch.units_per_pack}
                               onChange={(e) => updateBatch(index, 'units_per_pack', parseInt(e.target.value) || 0)}
-                              placeholder="e.g., 100"
                               min="1"
                               required
                             />
