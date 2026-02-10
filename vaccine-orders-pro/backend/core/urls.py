@@ -3,6 +3,7 @@ from django.urls import path, include, re_path
 from rest_framework.schemas import get_schema_view
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.static import serve
 from api.views import FrontendCatchallView
 from django.shortcuts import redirect
 
@@ -27,3 +28,12 @@ urlpatterns += [
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+else:
+    # Quick workaround for Render deployments where DEBUG=False and
+    # Django's `static()` helper is disabled. This exposes uploaded media
+    # files at `/media/...` so Product images uploaded via admin are
+    # reachable. For production, prefer using persistent object storage
+    # (S3 or Render persistent disk) and `django-storages` instead.
+    urlpatterns += [
+        re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    ]
