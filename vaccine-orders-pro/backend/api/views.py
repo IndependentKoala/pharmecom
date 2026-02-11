@@ -86,10 +86,10 @@ class ProductViewSet(viewsets.ModelViewSet):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_permissions(self):
-        """Only allow GET for everyone, POST/PUT/DELETE for staff only"""
+        """Allow GET for everyone, POST/PUT/DELETE for authenticated users"""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [permissions.IsAuthenticated()]
 
 class DosePackViewSet(viewsets.ModelViewSet):
     queryset = DosePack.objects.all()
@@ -97,10 +97,10 @@ class DosePackViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.AllowAny]
 
     def get_permissions(self):
-        """Only allow GET for everyone, POST/PUT/DELETE for staff only"""
+        """Allow GET for everyone, POST/PUT/DELETE for authenticated users"""
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [permissions.IsAuthenticated()]
 
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
