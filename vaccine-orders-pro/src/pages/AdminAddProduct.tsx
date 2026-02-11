@@ -144,6 +144,8 @@ export default function AdminAddProduct() {
         formData.append('image_alt', form.image_alt);
         // available_stock is derived from dose packs; do not send initial stock
         formData.append('image', imageFile);
+        
+        console.log('Sending FormData with image');
 
         res = await fetch(`${API_BASE}/products/`, {
           method: 'POST',
@@ -155,25 +157,28 @@ export default function AdminAddProduct() {
         });
       } else {
         // Use JSON for non-image requests
+        const payload = {
+          name: form.name,
+          brand: form.brand,
+          species: form.species,
+          product_type: form.product_type,
+          description: form.description,
+          manufacturer: form.manufacturer,
+          active_ingredients: form.active_ingredients,
+          storage_temp_range: form.storage_temp_range,
+          administration_notes: form.administration_notes,
+          image_alt: form.image_alt,
+        };
+        
+        console.log('Sending JSON payload:', payload);
+        
         res = await fetch(`${API_BASE}/products/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Token ${cleanToken}`,
           },
-            body: JSON.stringify({
-            name: form.name,
-            brand: form.brand,
-            species: form.species,
-            product_type: form.product_type,
-            description: form.description,
-            manufacturer: form.manufacturer,
-            active_ingredients: form.active_ingredients,
-            storage_temp_range: form.storage_temp_range,
-            administration_notes: form.administration_notes,
-            image_alt: form.image_alt,
-              // available_stock omitted — computed from dose packs
-          }),
+            body: JSON.stringify(payload),
           credentials: 'include',
         });
       }
@@ -181,7 +186,28 @@ export default function AdminAddProduct() {
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         console.error('API Error Response:', { status: res.status, data: errorData });
-        const errorMessage = typeof errorData === 'string' ? errorData : (errorData?.detail || errorData?.error || 'Failed to create product');
+        console.log('Full error object:', JSON.stringify(errorData, null, 2));
+        
+        // Handle validation errors from DRF
+        let errorMessage = 'Failed to create product';
+        if (typeof errorData === 'object') {
+          // DRF returns validation errors as an object with field names as keys
+          const errors = Object.entries(errorData)
+            .filter(([key]) => key !== 'detail' && key !== 'error')
+            .map(([key, value]: [string, any]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+            .join('; ');
+          
+          if (errors) {
+            errorMessage = errors;
+          } else if (errorData?.detail) {
+            errorMessage = errorData.detail;
+          } else if (errorData?.error) {
+            errorMessage = errorData.error;
+          }
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        }
+        
         throw new Error(errorMessage);
       }
 
