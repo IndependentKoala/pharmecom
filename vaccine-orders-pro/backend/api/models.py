@@ -32,7 +32,7 @@ class Product(models.Model):
     storage_temp_range = models.CharField(max_length=50)
     image = models.ImageField(upload_to='products/', null=True, blank=True)
     image_url = models.CharField(max_length=255, default='/placeholder.svg', blank=True)
-    image_alt = models.CharField(max_length=255)
+    image_alt = models.CharField(max_length=255, blank=True, default='')
     tags = models.TextField(default="[]")  # Store as JSON string
     minimum_order_qty = models.IntegerField(default=1)
     lead_time_days = models.IntegerField(default=3)
