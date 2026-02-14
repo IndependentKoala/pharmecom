@@ -100,9 +100,8 @@ export default function SignIn() {
           <span className="text-sm">Password</span>
           <input type="password" className="mt-1 block w-full border rounded px-2 py-1" value={password} onChange={e=>setPassword(e.target.value)} />
         </label>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center">
           <button className="bg-blue-600 text-white px-4 py-2 rounded" type="submit">Sign In</button>
-          <a className="text-sm text-blue-600" href="/signup">Create account</a>
         </div>
       </form>
     </div>
