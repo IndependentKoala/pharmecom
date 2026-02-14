@@ -120,7 +120,11 @@ WHITENOISE_MIMETYPES = {
 
 # Media files (uploads)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# Use Render disk in production, local media/ in development
+if os.environ.get('RENDER'):
+    MEDIA_ROOT = Path('/var/data/media')
+else:
+    MEDIA_ROOT = BASE_DIR / 'media'
 
 # Silence JSONField checks on SQLite for local development where we
 # provide lightweight JSON helpers.
