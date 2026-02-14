@@ -83,7 +83,16 @@ export default function SignIn() {
       // Login successful, redirect to catalog
       navigate('/catalog');
     } catch (err: any) {
-      setError(err?.message || "Sign in failed. Please try again.");
+      let friendlyMessage = "Sign in failed. Please check your username and password.";
+      if (err?.message) {
+        // Check if it's the API non_field_errors response
+        if (err.message.includes("non_field_errors") || err.message.includes("Unable to log in")) {
+          friendlyMessage = "Invalid username or password. Please try again.";
+        } else {
+          friendlyMessage = err.message;
+        }
+      }
+      setError(friendlyMessage);
     }
   }
 
