@@ -467,11 +467,9 @@ export default function ProductDetail() {
               <div className="space-y-2">
                 <Label>Requested Delivery Date</Label>
                 <p className="text-xs text-muted-foreground">
-                  {quantity > (product.availableStock || 0)
-                    ? 'Lead time: 3 weeks (stock shortage)'
-                    : effectiveLeadTimeDays === 21
-                      ? 'Lead time: 3 weeks (no units)'
-                      : `Lead time: ${effectiveLeadTimeDays} days`
+                  {effectiveLeadTimeDays === 21
+                    ? 'Lead time: 3 weeks'
+                    : `Lead time: ${effectiveLeadTimeDays} days`
                   }
                 </p>
                 <Popover>
