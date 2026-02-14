@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, DosePack, Batch, Order, OrderItem, OrderStatusHistory
+from .models import Product, DosePack, Batch, Order, OrderItem, OrderStatusHistory, UserProfile
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -55,6 +55,13 @@ class BatchAdmin(admin.ModelAdmin):
         return '-'
     image_preview.allow_tags = True
     image_preview.short_description = 'Image'
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'company_name', 'created_at', 'updated_at')
+    search_fields = ('user__username', 'company_name')
+    readonly_fields = ('created_at', 'updated_at')
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
