@@ -259,6 +259,17 @@ export function Header() {
                 Dashboard
               </button>
             )}
+            {user && (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleLogout();
+                }}
+                className="block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-secondary mt-2 pt-2 border-t border-border"
+              >
+                Logout
+              </button>
+            )}
           </div>
         </div>
       )}
