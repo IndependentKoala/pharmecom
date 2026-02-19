@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Product, DosePack, Batch, Order, OrderItem, UserProfile, InventoryLog, OrderStatusHistory
+from .models import Cart, CartItem
 from decimal import Decimal
 import uuid
 
@@ -47,7 +48,9 @@ class ProductSerializer(serializers.ModelSerializer):
     total_units = serializers.SerializerMethodField()
     image = serializers.ImageField(required=False, allow_null=True, use_url=True)
     image_alt = serializers.CharField(required=False, allow_blank=True)
-    image_url = serializers.SerializerMethodField()
+    # Allow clients to provide `image_url` when creating/updating products.
+    # On read, we still want to return an absolute URL (handled in to_representation).
+    image_url = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Product
@@ -68,16 +71,20 @@ class ProductSerializer(serializers.ModelSerializer):
             total += units_per_pack
         return total
     
-    def get_image_url(self, obj):
-        """Return the appropriate image URL"""
-        url = obj.get_image_url()
-        request = self.context.get('request') if hasattr(self, 'context') else None
+    def to_representation(self, instance):
+        """Return serialized data, ensuring `image_url` is an absolute URL when possible."""
+        data = super().to_representation(instance)
         try:
+            url = instance.get_image_url()
+            request = self.context.get('request') if hasattr(self, 'context') else None
             if request and url:
-                return request.build_absolute_uri(url)
+                data['image_url'] = request.build_absolute_uri(url)
+            else:
+                data['image_url'] = url
         except Exception:
-            pass
-        return url
+            # fallback to whatever the field contains
+            data['image_url'] = data.get('image_url')
+        return data
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
@@ -214,6 +221,63 @@ class OrderSerializer(serializers.ModelSerializer):
         order.total_amount = total
         order.save()
         return order
+
+
+class CartItemSerializer(serializers.ModelSerializer):
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    dose_pack = serializers.PrimaryKeyRelatedField(queryset=DosePack.objects.all(), allow_null=True, required=False)
+
+    class Meta:
+        model = CartItem
+        fields = ('id', 'product', 'dose_pack', 'quantity', 'requested_delivery_date', 'special_instructions')
+
+    def to_representation(self, instance):
+        """Return full product and dosepack objects for convenience on GET."""
+        data = super().to_representation(instance)
+        # Include full Product object
+        if instance.product:
+            data['product'] = ProductSerializer(instance.product, context=self.context).data
+        if instance.dose_pack:
+            data['dose_pack'] = DosePackSerializer(instance.dose_pack).data
+        return data
+
+
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(many=True)
+
+    class Meta:
+        model = Cart
+        fields = ('id', 'user', 'items')
+        read_only_fields = ('user',)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # include nested product info for convenience
+        data['items'] = CartItemSerializer(instance.items.all(), many=True).data
+        return data
+
+    def create_or_update_for_user(self, user, items_data):
+        # Ensure the user has a cart; create if needed
+        cart, _ = Cart.objects.get_or_create(user=user)
+        # Replace existing items with provided list
+        cart.items.all().delete()
+        items = []
+        for it in items_data:
+            product = it.get('product')
+            dose_pack = it.get('dose_pack', None)
+            quantity = int(it.get('quantity', 0) or 0)
+            requested_delivery_date = it.get('requested_delivery_date', None)
+            special = it.get('special_instructions', '')
+            ci = CartItem.objects.create(
+                cart=cart,
+                product=Product.objects.get(pk=product) if product else None,
+                dose_pack=(DosePack.objects.get(pk=dose_pack) if dose_pack else None),
+                quantity=quantity,
+                requested_delivery_date=requested_delivery_date,
+                special_instructions=special
+            )
+            items.append(ci)
+        return cart
 
 
 class InventoryLogSerializer(serializers.ModelSerializer):

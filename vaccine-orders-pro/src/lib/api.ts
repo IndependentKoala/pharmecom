@@ -13,20 +13,39 @@ class ApiClient {
 
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${this.baseUrl}${endpoint}`;
+    // Attach credentials and token if available
+    const token = localStorage.getItem('authToken');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    } as Record<string, string>;
+    if (token) {
+      headers['Authorization'] = `Token ${token}`;
+    }
+
     const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      credentials: 'include',
+      headers,
       ...options,
     });
 
-    if (!response.ok) {
-      const error: ApiError = await response.json().catch(() => ({}));
-      throw new Error(error.detail || `API Error: ${response.status}`);
+    const text = await response.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (e) {
+      data = text;
     }
 
-    return response.json();
+    if (!response.ok) {
+      const err: ApiError = (data && typeof data === 'object') ? data : { detail: String(data) };
+      const error: any = new Error(err.detail || `API Error: ${response.status}`);
+      error.status = response.status;
+      error.data = err;
+      throw error;
+    }
+
+    return data;
   }
 
   // Products

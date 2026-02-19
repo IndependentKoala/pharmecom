@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: '/static/',  // Serve assets from /static/ to work with Django's STATIC_URL
+  base: mode === 'development' ? '/' : '/static/',  // Serve root in dev, /static/ for Django production
   define: {
     __API_URL__: JSON.stringify(process.env.VITE_API_URL || 'http://localhost:8000/api'),
   },

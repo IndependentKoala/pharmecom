@@ -75,9 +75,12 @@ TEMPLATES = [
 WSGI_APPLICATION = "core.wsgi.application"
 
 # Database configuration - supports both SQLite and PostgreSQL
-import dj_database_url
 
+# Only import dj_database_url when a DATABASE_URL is provided to avoid
+# import-time incompatibilities during local development with SQLite.
 if os.environ.get('DATABASE_URL'):
+    import dj_database_url
+
     DATABASES = {
         'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'), conn_max_age=600)
     }

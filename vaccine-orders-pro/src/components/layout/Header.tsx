@@ -3,6 +3,7 @@ import { ShoppingCart, User, Menu, X, Syringe, Package, Layers } from 'lucide-re
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/context/CartContext';
+import { API_BASE } from '@/lib/api';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -20,9 +21,9 @@ const staffNavigation = [
 
 export function Header() {
   const location = useLocation();
-  const { totalItems, setUserIdAndClearCart } = useCart();
+  const { totalItems, setUserIdAndClearCart, setServerCart } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<{ username?: string; is_staff?: boolean; is_superuser?: boolean } | null>(null);
+  const [user, setUser] = useState<{ username?: string; is_staff?: boolean; is_superuser?: boolean; id?: number } | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,9 +53,26 @@ export function Header() {
           return null;
         }
       })
-      .then((data) => {
+      .then(async (data) => {
         if (!mounted) return;
         setUser(data);
+        // Load server-side cart for this user. The server cart is authoritative
+        // (userId is already set in CartContext from login flow).
+        // Just fetch and update local items; don't re-merge (that happened in SignIn).
+        try {
+          const cartRes = await fetch(`${API_BASE}/cart/`, {
+            headers: { 'Authorization': `Token ${token}` },
+            credentials: 'include'
+          });
+          if (cartRes.ok) {
+            const cartData = await cartRes.json();
+            const serverItems = cartData?.items || [];
+            // Load server cart into local state.
+            setServerCart(serverItems);
+          }
+        } catch (e) {
+          console.warn('Failed to load cart from server', e);
+        }
       })
       .catch(() => { 
         if (mounted) {

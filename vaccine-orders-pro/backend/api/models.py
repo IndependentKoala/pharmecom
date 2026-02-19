@@ -175,3 +175,34 @@ class OrderStatusHistory(models.Model):
 
     def __str__(self):
         return f"{self.order.order_number} - {self.status} by {self.changed_by.username if self.changed_by else 'System'}"
+
+
+class Cart(models.Model):
+    """A simple per-user shopping cart stored on the server.
+
+    The app keeps one `Cart` per authenticated `User`. Anonymous carts are
+    stored client-side and merged into the server cart on login.
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Cart for {self.user.username}"
+
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, related_name='items', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True)
+    dose_pack = models.ForeignKey(DosePack, on_delete=models.SET_NULL, null=True, blank=True)
+    quantity = models.IntegerField(default=1)
+    requested_delivery_date = models.DateField(null=True, blank=True)
+    special_instructions = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('cart', 'product', 'dose_pack')
+
+    def __str__(self):
+        return f"{self.product.name if self.product else 'Unknown'} x {self.quantity} in {self.cart.user.username}'s cart"

@@ -187,15 +187,27 @@ export function AddProductForm() {
                     />
                   </label>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="imageAlt">Image Alt Text</Label>
-                  <Input
-                    id="imageAlt"
-                    value={formData.imageAlt}
-                    onChange={(e) => handleInputChange('imageAlt', e.target.value)}
-                    placeholder="Describe the image for accessibility"
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="imageUrl">Image URL</Label>
+                      <Input
+                        id="imageUrl"
+                        value={formData.imageUrl}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          handleInputChange('imageUrl', v);
+                          setImagePreview(v || null);
+                        }}
+                        placeholder="/images/product.jpg or https://..."
+                      />
+
+                      <Label htmlFor="imageAlt">Image Alt Text</Label>
+                      <Input
+                        id="imageAlt"
+                        value={formData.imageAlt}
+                        onChange={(e) => handleInputChange('imageAlt', e.target.value)}
+                        placeholder="Describe the image for accessibility"
+                      />
+                    </div>
               </div>
               {imagePreview && (
                 <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-border">

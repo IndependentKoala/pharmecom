@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCart } from '@/context/CartContext';
 import { toast } from '@/hooks/use-toast';
 import { format, addDays } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, getImageSrc, getImageAlt } from '@/lib/utils';
 
 interface Product {
   id: number;
@@ -139,11 +139,6 @@ export default function ProductDetail() {
         totalUnits = product.dosePacks.reduce((sum, dp) => 
           sum + (dp.units_per_pack || 0), 0);
       }
-      
-      // Calculate effective lead time: 3 weeks if no units, 3 days otherwise
-      const leadTime = totalUnits === 0 ? 21 : 3;
-      setEffectiveLeadTimeDays(leadTime);
-      
       // Prefer dose packs if available
       if (product.dosePacks && product.dosePacks.length > 0) {
         setSelectedPackId(String(product.dosePacks[0].id));
@@ -152,9 +147,26 @@ export default function ProductDetail() {
         setSelectedBatchId(String(product.batches[0].id));
       }
       setQuantity(product.minimumOrderQty || 1);
-      setDeliveryDate(addDays(new Date(), leadTime));
+      setDeliveryDate(addDays(new Date(), 3));
     }
   }, [product]);
+
+  // Unified effect: compute effective lead time based on requested quantity vs available stock
+  useEffect(() => {
+    if (!product) return;
+
+    const available = product.availableStock || 0;
+    const requested = quantity || 0;
+
+    // If requested > available, force 3 weeks; otherwise default to product lead time or 3 days.
+    const leadTime = requested > available ? 21 : (product.leadTimeDays || 3);
+    setEffectiveLeadTimeDays(leadTime);
+
+    const minDate = addDays(new Date(), leadTime);
+    if (!deliveryDate || deliveryDate.getTime() < minDate.getTime()) {
+      setDeliveryDate(minDate);
+    }
+  }, [product, quantity, selectedPackId]);
 
   // Update effective lead time when the user changes quantity or when product stock changes.
   // If the requested quantity is greater than current available stock, force a 3-week lead time
@@ -166,16 +178,11 @@ export default function ProductDetail() {
       ? product.dosePacks.reduce((sum, dp) => sum + (dp.units_per_pack || 0), 0)
       : 0;
 
-    // Base lead time: if no units, 3 weeks, otherwise product lead time or 3 days
-    let leadTime = totalUnits === 0 ? 21 : (product.leadTimeDays || 3);
-
     const available = product.availableStock || 0;
     const requested = quantity || 0;
 
-    if (requested > available) {
-      leadTime = 21; // force 3 weeks when requested > available
-    }
-
+    // If requested > available, force 3 weeks; otherwise default to 3 days.
+    const leadTime = requested > available ? 21 : 3;
     setEffectiveLeadTimeDays(leadTime);
 
     const minDate = addDays(new Date(), leadTime);
@@ -227,6 +234,7 @@ export default function ProductDetail() {
             type: product.type,
             availableStock: product.availableStock,
             dosePacks: product.dosePacks,
+            leadTimeDays: effectiveLeadTimeDays,
           } as any, 
           selectedPack, 
           quantity, 
@@ -262,6 +270,7 @@ export default function ProductDetail() {
             type: product.type,
             availableStock: product.availableStock,
             batches: product.batches,
+            leadTimeDays: effectiveLeadTimeDays,
           } as any, 
           batchAspack, 
           quantity, 
@@ -300,14 +309,14 @@ export default function ProductDetail() {
           {/* Product Image */}
           <div className="space-y-4">
             <div className="aspect-square rounded-xl bg-gradient-to-br from-muted to-secondary overflow-hidden flex items-center justify-center">
-              {product.image || (product.image_url && product.image_url !== '/placeholder.svg') ? (
-                <img 
-                  src={product.image || product.image_url} 
-                  alt={product.image_alt || product.name}
+              {getImageSrc(product) && getImageSrc(product) !== '/placeholder.svg' ? (
+                <img
+                  src={getImageSrc(product)!}
+                  alt={getImageAlt(product)}
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <Package className="h-32 w-32 text-muted-foreground/30" />
+                <img src="/placeholder.svg" alt={getImageAlt(product)} className="w-full h-full object-cover" />
               )}
             </div>
             

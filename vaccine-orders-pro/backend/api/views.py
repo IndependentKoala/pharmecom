@@ -11,7 +11,8 @@ import uuid
 from pathlib import Path
 
 from .models import Product, Order, OrderItem, DosePack, UserProfile, Batch, InventoryLog, OrderStatusHistory
-from .serializers import ProductSerializer, OrderSerializer, UserSerializer, BatchSerializer, DosePackSerializer, InventoryLogSerializer
+from .models import Cart, CartItem
+from .serializers import ProductSerializer, OrderSerializer, UserSerializer, BatchSerializer, DosePackSerializer, InventoryLogSerializer, CartSerializer
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.middleware.csrf import get_token
 from django.http import JsonResponse
@@ -360,3 +361,64 @@ class FrontendCatchallView(View):
         
         # If no index.html found, return a 404
         return JsonResponse({'error': f'Frontend not found at {index_path}'}, status=404)
+
+
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+
+
+class CartView(APIView):
+    """Endpoint to get or replace the current authenticated user's cart.
+
+    GET: returns the current user's cart (empty list if none or anonymous)
+    PUT/POST: replace the user's cart with the provided items (requires auth)
+    
+    Frontend sends items with nested product/dosePack objects; we extract IDs and save.
+    On GET, we return items with full product/dosePack objects.
+    """
+    def get(self, request):
+        user = request.user if hasattr(request, 'user') else None
+        if not user or not user.is_authenticated:
+            return Response({'items': []}, status=status.HTTP_200_OK)
+        cart, _ = Cart.objects.get_or_create(user=user)
+        serializer = CartSerializer(cart, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request):
+        if not request.user or not request.user.is_authenticated:
+            return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
+        items = request.data.get('items', [])
+        
+        # Convert frontend format to backend format
+        # Frontend sends: { product: {id, ...}, dosePack: {id, ...}, quantity, ... }
+        # We need: { product: id, dose_pack: id, quantity, ... }
+        converted_items = []
+        for item in items:
+            converted = {
+                'quantity': item.get('quantity', 1),
+                # Accept either snake_case or camelCase from frontend
+                'requested_delivery_date': item.get('requested_delivery_date') or item.get('requestedDeliveryDate'),
+                'special_instructions': item.get('special_instructions', '') or item.get('specialInstructions', ''),
+            }
+            # Extract product ID (could be nested object or plain ID)
+            product = item.get('product')
+            if isinstance(product, dict):
+                converted['product'] = product.get('id')
+            else:
+                converted['product'] = product
+            
+            # Extract dosePack ID (could be nested object or plain ID)
+            dose_pack = item.get('dosePack') or item.get('dose_pack')
+            if dose_pack:
+                if isinstance(dose_pack, dict):
+                    converted['dose_pack'] = dose_pack.get('id')
+                else:
+                    converted['dose_pack'] = dose_pack
+            
+            converted_items.append(converted)
+        
+        cart = CartSerializer().create_or_update_for_user(request.user, converted_items)
+        serializer = CartSerializer(cart, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    post = put

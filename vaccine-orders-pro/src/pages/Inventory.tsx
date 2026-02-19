@@ -24,6 +24,7 @@ import { AlertCircle, Package, TrendingDown, Calendar, Lock, Plus, RotateCcw } f
 import { toast } from '@/hooks/use-toast';
 import { format, differenceInDays } from 'date-fns';
 import api from '@/lib/api';
+import { getImageSrc, getImageAlt } from '@/lib/utils';
 
 interface Batch {
   id: number;
@@ -309,11 +310,11 @@ export default function Inventory() {
                       return (
                         <TableRow key={product.id}>
                           <TableCell className="flex items-center gap-3">
-                            <img 
-                              src={product.image || product.image_url || '/placeholder.svg'} 
-                              alt={product.image_alt || product.name} 
-                              className="h-10 w-10 rounded object-cover" 
-                            />
+                              <img
+                                src={getImageSrc(product) || '/placeholder.svg'}
+                                alt={getImageAlt(product)}
+                                className="h-10 w-10 rounded object-cover"
+                              />
                             <span>{product.name}</span>
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">{product.brand || '-'}</TableCell>

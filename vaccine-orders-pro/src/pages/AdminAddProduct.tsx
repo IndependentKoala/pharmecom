@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Upload, X, Plus } from 'lucide-react';
+import { ArrowLeft, Upload, X, Plus, Package } from 'lucide-react';
 import { API_BASE } from '@/lib/api';
 
 interface DosePack {
@@ -36,6 +36,7 @@ export default function AdminAddProduct() {
     storage_temp_range: '2-8°C',
     administration_notes: '',
     image_alt: '',
+    image_url: '',
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export default function AdminAddProduct() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
+        setForm((prev) => ({ ...prev, image_url: reader.result as string }));
       };
       reader.readAsDataURL(file);
     }
@@ -142,6 +144,11 @@ export default function AdminAddProduct() {
         formData.append('storage_temp_range', form.storage_temp_range);
         formData.append('administration_notes', form.administration_notes);
         formData.append('image_alt', form.image_alt);
+        // Only include image_url when it's a real URL (not the data-uri preview)
+        const maybeUrl = (form as any).image_url;
+        if (maybeUrl && typeof maybeUrl === 'string' && !maybeUrl.startsWith('data:')) {
+          formData.append('image_url', maybeUrl);
+        }
         // available_stock is derived from dose packs; do not send initial stock
         formData.append('image', imageFile);
         
@@ -168,6 +175,7 @@ export default function AdminAddProduct() {
           storage_temp_range: form.storage_temp_range,
           administration_notes: form.administration_notes,
           image_alt: form.image_alt,
+          image_url: (form as any).image_url || '',
         };
         
         console.log('Sending JSON payload:', payload);
@@ -237,7 +245,13 @@ export default function AdminAddProduct() {
         description: `Product "${form.name}" has been added successfully with ${batches.length} dose pack(s).`,
       });
 
-      navigate('/inventory');
+      // If backend returned an image URL, force a full reload of the catalog
+      // so the uploaded file is requested freshly from the Django server.
+      if (product?.image || product?.image_url) {
+        window.location.href = '/catalog';
+      } else {
+        navigate('/catalog');
+      }
     } catch (err: any) {
       console.error('Error creating product:', err);
       toast({
@@ -399,6 +413,20 @@ export default function AdminAddProduct() {
                       </label>
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="imageUrl">Image URL</Label>
+                      <Input
+                        id="imageUrl"
+                        value={(form as any).image_url}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          handleInputChange('image_url', v);
+                          setImagePreview(v || null);
+                          // clear imageFile if user switches to URL
+                          if (v) setImageFile(null);
+                        }}
+                        placeholder="/images/product.jpg or https://..."
+                      />
+
                       <Label htmlFor="imageAlt">Image Alt Text</Label>
                       <Input
                         id="imageAlt"
@@ -408,18 +436,24 @@ export default function AdminAddProduct() {
                       />
                     </div>
                   </div>
-                  {imagePreview && (
-                    <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-border">
-                      <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={clearImage}
-                        className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
+                  <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-border flex-shrink-0">
+                    {imagePreview ? (
+                      <>
+                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={clearImage}
+                          className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
+                        <Package className="h-8 w-8 text-muted-foreground/40" />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

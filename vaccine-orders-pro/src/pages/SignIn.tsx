@@ -65,7 +65,8 @@ export default function SignIn() {
       // Store auth token in localStorage for token-based auth
       if (data?.key) {
         localStorage.setItem('authToken', data.key);
-        // Get user ID and set it in cart context to clear cart for new user
+        // Get user ID and set it in cart context to merge local carts and
+        // trigger localStorage persistence of the merged cart for next page load.
         try {
           const userRes = await fetch(`${API_BASE}/auth/user/`, {
             headers: { "Authorization": `Token ${data.key}` },
@@ -73,7 +74,10 @@ export default function SignIn() {
           });
           if (userRes.ok) {
             const userData = await userRes.json();
+            // Merge anonymous cart into user cart (stored in localStorage).
+            // The effect in CartContext will persist this to localStorage.
             setUserIdAndClearCart(String(userData.id));
+            // On next page load, Header will fetch the server cart and override locals.
           }
         } catch (e) {
           console.warn('Failed to fetch user ID', e);

@@ -4,7 +4,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Product } from '@/data/products';
-import { cn } from '@/lib/utils';
+import { cn, getImageSrc, getImageAlt } from '@/lib/utils';
+import { API_BASE } from '@/lib/api';
 
 interface ProductCardProps {
   product: Product;
@@ -30,11 +31,45 @@ export function ProductCard({ product, className }: ProductCardProps) {
       <CardContent className="p-0 flex flex-col h-full">
         {/* Image placeholder */}
         <div className="relative aspect-[4/3] bg-gradient-to-br from-muted to-secondary overflow-hidden flex-shrink-0">
-          {product.image || (product.image_url && product.image_url !== '/placeholder.svg') ? (
+          {getImageSrc(product) && getImageSrc(product) !== '/placeholder.svg' ? (
             <img 
-              src={product.image || product.image_url} 
-              alt={product.image_alt || product.name}
+              src={getImageSrc(product)!} 
+              alt={getImageAlt(product)}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                const img = e.currentTarget as HTMLImageElement;
+                if (img.dataset.tried) {
+                  img.src = '/placeholder.svg';
+                  return;
+                }
+                img.dataset.tried = '1';
+                try {
+                  const src = img.getAttribute('src') || '';
+                  const backendOrigin = (typeof API_BASE === 'string' && API_BASE.startsWith('http')) ? new URL(API_BASE).origin : window.location.origin;
+
+                  if (src.startsWith('/')) {
+                    img.src = backendOrigin + src;
+                    return;
+                  }
+
+                  // If src is absolute, try rewriting host to backend origin (handle localhost vs 127.0.0.1 differences)
+                  try {
+                    const parsed = new URL(src);
+                    const backendHost = new URL(backendOrigin).host;
+                    if (parsed.host !== backendHost) {
+                      const rewritten = `${new URL(backendOrigin).protocol}//${backendHost}${parsed.pathname}${parsed.search}`;
+                      img.src = rewritten;
+                      return;
+                    }
+                  } catch (err) {
+                    // ignore
+                  }
+
+                  img.src = '/placeholder.svg';
+                } catch (err) {
+                  img.src = '/placeholder.svg';
+                }
+              }}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">

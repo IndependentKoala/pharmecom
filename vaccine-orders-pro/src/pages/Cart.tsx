@@ -169,13 +169,25 @@ export default function Cart() {
                           <PopoverTrigger asChild>
                             <Button variant="outline" size="sm" className="gap-2">
                               <Calendar className="h-4 w-4" />
-                              {format(new Date(item.requestedDeliveryDate), 'MMM d, yyyy')}
+                              {(() => {
+                                try {
+                                  return format(new Date(item.requestedDeliveryDate), 'MMM d, yyyy');
+                                } catch (e) {
+                                  return 'Select date';
+                                }
+                              })()}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="end">
                             <CalendarComponent
                               mode="single"
-                              selected={new Date(item.requestedDeliveryDate)}
+                              selected={(() => {
+                                try {
+                                  return new Date(item.requestedDeliveryDate);
+                                } catch (e) {
+                                  return new Date();
+                                }
+                              })()}
                               onSelect={(date) => date && updateDeliveryDate(
                                 item.product.id, 
                                 item.dosePack.id, 

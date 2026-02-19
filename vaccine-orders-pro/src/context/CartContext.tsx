@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Product, DosePack } from '@/data/products';
+import { API_BASE } from '@/lib/api';
 
 export interface CartItem {
   product: Product;
@@ -18,14 +19,31 @@ interface CartContextType {
   updateSpecialInstructions: (productId: string, dosePackId: number, instructions: string) => void;
   clearCart: () => void;
   setUserIdAndClearCart: (id: string | null) => void;
+  setServerCart: (items: any[]) => void;
   totalItems: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [userId, setUserId] = useState<string | null>(localStorage.getItem('userId') || null);
+  const storedUserId = localStorage.getItem('userId') || null;
+  const [userId, setUserId] = useState<string | null>(storedUserId);
+
+  const loadCartFor = (id: string | null) => {
+    try {
+      if (id) {
+        const raw = localStorage.getItem(`cart:${id}`);
+        if (raw) return JSON.parse(raw) as CartItem[];
+      }
+      const anon = localStorage.getItem('cart:anon');
+      if (anon) return JSON.parse(anon) as CartItem[];
+    } catch (err) {
+      // ignore parse errors
+    }
+    return [] as CartItem[];
+  };
+
+  const [items, setItems] = useState<CartItem[]>(() => loadCartFor(storedUserId));
 
   const addItem = useCallback((product: Product, dosePack: DosePack, quantity: number, deliveryDate: string, specialInstructions?: string) => {
     setItems(prev => {
@@ -84,25 +102,133 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => {
     setItems([]);
+    try {
+      if (userId) {
+        localStorage.removeItem(`cart:${userId}`);
+      }
+      localStorage.removeItem('cart:anon');
+    } catch (err) {
+      // ignore
+    }
+  }, [userId]);
+
+  const setServerCart = useCallback((serverItems: any[]) => {
+    // Used when syncing server cart after login. Directly set items from server
+    // without merging. Convert server format (dose_pack) to frontend format (dosePack).
+    try {
+      const converted = (serverItems || []).map((item: any) => {
+        // Get delivery date or default to 3 days from now
+        let deliveryDate = item.requested_delivery_date || item.requestedDeliveryDate;
+        if (!deliveryDate) {
+          const d = new Date();
+          d.setDate(d.getDate() + 3);
+          deliveryDate = d.toISOString().split('T')[0];
+        }
+        return {
+          product: item.product,
+          dosePack: item.dose_pack || item.dosePack,
+          quantity: item.quantity,
+          requestedDeliveryDate: deliveryDate,
+          specialInstructions: item.special_instructions || item.specialInstructions || '',
+        };
+      });
+      setItems(converted);
+      localStorage.removeItem('cart:anon');
+    } catch (err) {
+      console.warn('Failed to convert server cart', err);
+      // ignore
+    }
   }, []);
 
   const setUserIdAndClearCart = useCallback((id: string | null) => {
-    setUserId(id);
-    if (id === null) {
-      // User logged out, clear cart
-      setItems([]);
-    } else {
-      // User logged in, clear cart for the new user
-      setItems([]);
+    // When switching user, merge anonymous cart into user's cart without
+    // persisting the anonymous cart into the user's storage first (which
+    // could cause duplication). We delay calling `setUserId` until after
+    // the merge so the effect that persists carts won't write the anon
+    // cart into the user's key.
+    try {
+      if (id) {
+        const userRaw = localStorage.getItem(`cart:${id}`);
+        const anonRaw = localStorage.getItem('cart:anon');
+
+        const userCart: CartItem[] = userRaw ? JSON.parse(userRaw) as CartItem[] : [];
+        const anonCart: CartItem[] = anonRaw ? JSON.parse(anonRaw) as CartItem[] : items;
+
+        const keyFor = (it: CartItem) => `${it.product.id}::${it.dosePack.id}`;
+        const mergedMap = new Map<string, CartItem>();
+
+        userCart.forEach(it => mergedMap.set(keyFor(it), it));
+        anonCart.forEach(it => {
+          const k = keyFor(it);
+          if (mergedMap.has(k)) {
+            const existing = mergedMap.get(k)!;
+            mergedMap.set(k, { ...existing, quantity: existing.quantity + it.quantity });
+          } else {
+            mergedMap.set(k, it);
+          }
+        });
+
+        const merged = Array.from(mergedMap.values());
+        setItems(merged);
+        // remove anonymous cart so merge only happens once
+        localStorage.removeItem('cart:anon');
+        // now set the active user id — effect will persist merged cart to `cart:${id}`
+        setUserId(id);
+        localStorage.setItem('userId', id);
+      } else {
+        // logging out: set userId to null and keep the current items as anonymous
+        setUserId(null);
+        localStorage.removeItem('userId');
+        // effect will persist `items` to `cart:anon`
+      }
+    } catch (err) {
+      // ignore storage errors
+      setUserId(id);
     }
-    if (id) {
-      localStorage.setItem('userId', id);
-    } else {
-      localStorage.removeItem('userId');
-    }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Persist items to localStorage whenever they change
+  useEffect(() => {
+    try {
+      if (userId) {
+        localStorage.setItem(`cart:${userId}`, JSON.stringify(items));
+      } else {
+        localStorage.setItem('cart:anon', JSON.stringify(items));
+      }
+    } catch (err) {
+      // ignore
+    }
+  }, [items, userId]);
+
+  // Sync cart to server whenever items change and user is authenticated
+  useEffect(() => {
+    if (!userId) {
+      return; // No sync for anonymous users
+    }
+    // Debounce: only sync if items have actually changed (not on every render)
+    const syncTimer = setTimeout(async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+          await fetch(`${API_BASE}/cart/`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Token ${token}`,
+            },
+            credentials: 'include',
+            body: JSON.stringify({ items })
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to sync cart to server', err);
+      }
+    }, 500); // Wait 500ms after last change before syncing
+    return () => clearTimeout(syncTimer);
+  }, [items, userId]);
 
   return (
     <CartContext.Provider value={{
@@ -114,6 +240,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       updateSpecialInstructions,
       clearCart,
       setUserIdAndClearCart,
+      setServerCart,
       totalItems,
     }}>
       {children}

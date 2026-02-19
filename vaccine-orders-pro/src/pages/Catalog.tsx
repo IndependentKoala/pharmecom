@@ -68,7 +68,8 @@ export default function Catalog() {
     dosePacks: p.dose_packs || [],
     batches: p.batches || [],
     image: p.image,
-    image_url: p.image_url || '/placeholder.svg',
+    // Prefer an explicit image_url, then uploaded `image`, then fallback to placeholder
+    image_url: p.image_url || p.image || '/placeholder.svg',
     image_alt: p.image_alt || p.name,
   }));
 
