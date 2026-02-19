@@ -3,7 +3,7 @@ services:
     name: vaccine-orders-api
     env: python
     plan: free
-    buildCommand: pip install -r backend/requirements.txt && cd backend && python manage.py migrate && python manage.py collectstatic --noinput
+    buildCommand: npm install -g bun && bun install && bun run build && pip install -r backend/requirements.txt && cd backend && python manage.py migrate && python manage.py collectstatic --noinput
     startCommand: cd backend && gunicorn core.wsgi:application --bind 0.0.0.0:$PORT
     domains:
       - renderphamecom.onrender.com

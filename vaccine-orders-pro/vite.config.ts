@@ -7,7 +7,7 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   base: mode === 'development' ? '/' : '/static/',  // Serve root in dev, /static/ for Django production
   define: {
-    __API_URL__: JSON.stringify(process.env.VITE_API_URL || 'http://localhost:8000/api'),
+    __API_URL__: JSON.stringify(process.env.VITE_API_URL || (mode === 'production' ? '/api' : 'http://localhost:8000/api')),
   },
   server: {
     host: "::",
@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    outDir: 'dist',
+    outDir: 'backend/staticfiles',
     sourcemap: false,
     minify: 'esbuild',
   },
